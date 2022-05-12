@@ -1,0 +1,3 @@
+[submodule "docker-openwrt-builder"]
+	path = openwrt-builder
+	url = https://github.com/notpeelz/docker-openwrt-builder.git
