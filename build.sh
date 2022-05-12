@@ -17,7 +17,7 @@ SCRIPT_FILE="$(basename ${BASH_SOURCE[0]})"
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 
 function exit_with_help() {
-  >&2 echo "Usage: $SCRIPT_FILE [-v|--verbose] [--openwrt-version <refspec>] [-j <jobs>] [--make-args <args>] [--repo-url <url>] <refspec>"
+  >&2 echo "Usage: $SCRIPT_FILE [-v|--verbose] [--build-seed <file>] [--openwrt-version <refspec>] [-j <jobs>] [--make-args <args>] [--repo-url <url>] <refspec>"
   exit 1
 }
 
@@ -27,6 +27,7 @@ args=(
   "j:,"
   ",make-args:"
   ",repo-url:"
+  ",build-seed:"
 )
 
 short_args=()
@@ -47,6 +48,7 @@ options="$(getopt -n "$SCRIPT_FILE" \
 
 opt_openwrt_refspec="openwrt-22.03"
 opt_repo_url="https://github.com/berlin-open-wireless-lab/dawn.git"
+opt_build_seed="config.buildinfo"
 
 eval set -- "$options"
 while true; do
@@ -61,6 +63,7 @@ while true; do
     -j) opt_jobcount="$2"; shift ;;
     --make-args) opt_make_args="$2"; shift ;;
     --repo-url) opt_repo_url="$2"; shift ;;
+    --build-seed) opt_build_seed="$2"; shift ;;
     --openwrt-version) opt_openwrt_refspec="$2"; shift ;;
     *) >&2 echo "Unknown arg: $1"; exit_with_help ;;
   esac
@@ -77,6 +80,11 @@ fi
 
 # Make sure we have a refspec at this point
 [[ -z "$refspec" ]] && exit_with_help
+
+if [[ ! -f "$opt_build_seed" ]]; then
+  >&2 echo "Build seed not found: $opt_build_seed"
+  exit 1
+fi
 
 make_args=()
 if [[ -n "$opt_verbose" ]]; then
@@ -110,16 +118,12 @@ if [[ -n "$opt_verbose" ]]; then
   echo "  make args: $make_args"
 fi
 
-if [[ ! -f "config.buildinfo" ]]; then
-  >&2 echo "Missing build seed: config.buildinfo"
-  exit 1
-fi
-
 iidfile="$(mktemp)"
 function cleanup() { rm -rf "$iidfile"; }
 trap cleanup EXIT
 
 docker build "$DIR" \
+  --build-arg CONFIG_PATH="$opt_build_seed" \
   --build-arg REPO_URL="$opt_repo_url" \
   --build-arg BASE_IMAGE="$image_id" \
   --build-arg MAKE_ARGS="$make_args" \

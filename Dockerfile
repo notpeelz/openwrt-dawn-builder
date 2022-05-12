@@ -3,7 +3,12 @@ FROM ${BASE_IMAGE} AS openwrt-builder
 
 ARG MAKE_ARGS=
 
-COPY config.buildinfo .config
+ARG CONFIG_PATH
+RUN if [ -z "$CONFIG_PATH" ]; then \
+    >&2 echo "CONFIG_PATH build-arg is required"; \
+    exit 1; \
+  fi
+COPY ${CONFIG_PATH} .config
 
 RUN ./scripts/feeds update -a && ./scripts/feeds install -a
 
